@@ -1,26 +1,21 @@
 use crate::error::ContractError;
 use crate::state::{Config, ConfigResponse, CONFIG};
 
-use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, entry_point, from_binary, to_binary, Addr, Binary, Coin, CosmosMsg, Decimal, Deps,
-    DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128,
-    WasmMsg,
+    entry_point, from_binary, to_binary, Addr, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env,
+    MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 
-use crate::error::ContractError::NonSupported;
 use crate::msgs::InstantiateMsg;
-use astroport::asset::{addr_validate_to_lower, format_lp_token_name, Asset, AssetInfo, PairInfo};
-use astroport::factory::PairType;
-use astroport::generator::Cw20HookMsg as GeneratorHookMsg;
+use crate::queries::query_total_tokens_issued;
+use crate::simulation::{convert_bluna_to_stluna, convert_stluna_to_bluna};
+use astroport::asset::{addr_validate_to_lower, Asset, AssetInfo, PairInfo};
 use astroport::pair::{
     CumulativePricesResponse, Cw20HookMsg, ExecuteMsg, MigrateMsg, PoolResponse, QueryMsg,
-    ReverseSimulationResponse, SimulationResponse, TWAP_PRECISION,
+    ReverseSimulationResponse, SimulationResponse,
 };
-use astroport::pair::{DEFAULT_SLIPPAGE, MAX_ALLOWED_SLIPPAGE};
 use basset::hub::Cw20HookMsg as HubCw20HookMsg;
-use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
-use std::str::FromStr;
+use cw20::Cw20ReceiveMsg;
 use std::vec;
 
 /// ## Description
@@ -36,24 +31,13 @@ use std::vec;
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    msg.asset_infos[0].check(deps.api)?;
-    msg.asset_infos[1].check(deps.api)?;
-
-    if msg.asset_infos[0] == msg.asset_infos[1] {
-        return Err(ContractError::DoublingAssets {});
-    }
-
     let config = Config {
-        pair_info: PairInfo {
-            contract_addr: env.contract.address.clone(),
-            liquidity_token: Addr::unchecked(""),
-            asset_infos: msg.asset_infos.clone(),
-            pair_type: PairType::Xyk {},
-        },
+        stluna_addr: addr_validate_to_lower(deps.api, msg.stluna_addr.as_str())?,
+        bluna_addr: addr_validate_to_lower(deps.api, msg.bluna_addr.as_str())?,
         hub_addr: addr_validate_to_lower(deps.api, msg.hub_address.as_str())?,
     };
 
@@ -103,19 +87,17 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { .. } => Err(ContractError::NonSupported {}),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::ProvideLiquidity {
-            assets,
-            slippage_tolerance,
-            auto_stake,
-            receiver,
+            assets: _,
+            slippage_tolerance: _,
+            auto_stake: _,
+            receiver: _,
         } => Err(ContractError::NonSupported {}),
         ExecuteMsg::Swap {
-            offer_asset,
-            belief_price,
-            max_spread,
-            to,
-        } => {
-            return Err(ContractError::Unauthorized {});
-        }
+            offer_asset: _,
+            belief_price: _,
+            max_spread: _,
+            to: _,
+        } => Err(ContractError::Unauthorized {}),
     }
 }
 
@@ -144,19 +126,9 @@ pub fn receive_cw20(
             max_spread,
             to,
         }) => {
-            // only asset contract can execute this message
-            let mut authorized: bool = false;
             let config: Config = CONFIG.load(deps.storage)?;
 
-            for pool in config.pair_info.asset_infos {
-                if let AssetInfo::Token { contract_addr, .. } = &pool {
-                    if contract_addr == &info.sender {
-                        authorized = true;
-                    }
-                }
-            }
-
-            if !authorized {
+            if !(config.stluna_addr == info.sender || config.bluna_addr == info.sender) {
                 return Err(ContractError::Unauthorized {});
             }
 
@@ -269,7 +241,7 @@ pub fn swap(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Pair {} => to_binary(&query_pair_info(deps)?),
+        QueryMsg::Pair {} => to_binary(&query_pair_info(deps, env)?),
         QueryMsg::Pool {} => to_binary(&query_pool(deps)?),
         QueryMsg::Share { amount } => to_binary(&query_share(deps, amount)?),
         QueryMsg::Simulation { offer_asset } => to_binary(&query_simulation(deps, offer_asset)?),
@@ -285,9 +257,14 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 /// Returns information about a pair in an object of type [`PairInfo`].
 /// ## Params
 /// * **deps** is the object of type [`Deps`].
-pub fn query_pair_info(deps: Deps) -> StdResult<PairInfo> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    Ok(config.pair_info)
+pub fn query_pair_info(deps: Deps, env: Env) -> StdResult<PairInfo> {
+    let pool_info = query_pool(deps)?.assets;
+    Ok(PairInfo {
+        asset_infos: [pool_info[0].clone().info, pool_info[1].clone().info],
+        contract_addr: env.contract.address,
+        liquidity_token: Addr::unchecked(""),
+        pair_type: astroport::factory::PairType::Stable {},
+    })
 }
 
 /// ## Description
@@ -312,8 +289,8 @@ pub fn query_pool(deps: Deps) -> StdResult<PoolResponse> {
 /// * **deps** is the object of type [`Deps`].
 ///
 /// * **amount** is the object of type [`Uint128`]. Sets the amount for which a share in the pool will be requested.
-pub fn query_share(deps: Deps, amount: Uint128) -> StdResult<Vec<Asset>> {
-    Err(StdError::generic_err("not supported"))
+pub fn query_share(_deps: Deps, _amount: Uint128) -> StdResult<Vec<Asset>> {
+    Ok(vec![])
 }
 
 /// ## Description
@@ -323,7 +300,27 @@ pub fn query_share(deps: Deps, amount: Uint128) -> StdResult<Vec<Asset>> {
 ///
 /// * **offer_asset** is the object of type [`Asset`].
 pub fn query_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationResponse> {
-    Err(StdError::generic_err("not supported"))
+    let config: Config = CONFIG.load(deps.storage)?;
+
+    if let AssetInfo::Token { contract_addr } = offer_asset.info {
+        if contract_addr == config.stluna_addr {
+            Ok(SimulationResponse {
+                return_amount: convert_stluna_to_bluna(deps, config, offer_asset.amount)?,
+                spread_amount: Uint128::zero(),
+                commission_amount: Uint128::zero(),
+            })
+        } else if contract_addr == config.bluna_addr {
+            Ok(SimulationResponse {
+                return_amount: convert_bluna_to_stluna(deps, config, offer_asset.amount)?,
+                spread_amount: Uint128::zero(),
+                commission_amount: Uint128::zero(),
+            })
+        } else {
+            Err(StdError::generic_err("invalid offer asset"))
+        }
+    } else {
+        Err(StdError::generic_err("invalid offer asset"))
+    }
 }
 
 /// ## Description
@@ -333,8 +330,8 @@ pub fn query_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationR
 ///
 /// * **ask_asset** is the object of type [`Asset`].
 pub fn query_reverse_simulation(
-    deps: Deps,
-    ask_asset: Asset,
+    _deps: Deps,
+    _ask_asset: Asset,
 ) -> StdResult<ReverseSimulationResponse> {
     Err(StdError::generic_err("not supported"))
 }
@@ -345,7 +342,7 @@ pub fn query_reverse_simulation(
 /// * **deps** is the object of type [`Deps`].
 ///
 /// * **env** is the object of type [`Env`].
-pub fn query_cumulative_prices(deps: Deps, env: Env) -> StdResult<CumulativePricesResponse> {
+pub fn query_cumulative_prices(_deps: Deps, _env: Env) -> StdResult<CumulativePricesResponse> {
     Err(StdError::generic_err("not supported"))
 }
 
@@ -357,20 +354,9 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config: Config = CONFIG.load(deps.storage)?;
     Ok(ConfigResponse {
         hub_addr: config.hub_addr,
+        stluna_addr: config.stluna_addr,
+        bluna_addr: config.bluna_addr,
     })
-}
-
-/// ## Description
-/// Returns an amount in the coin if the coin is found, otherwise returns [`zero`].
-/// ## Params
-/// * **coins** are an array of [`Coin`] type items. Sets the list of coins.
-///
-/// * **denom** is the object of type [`String`]. Sets the name of coin.
-pub fn amount_of(coins: &[Coin], denom: String) -> Uint128 {
-    match coins.iter().find(|x| x.denom == denom) {
-        Some(coin) => coin.amount,
-        None => Uint128::zero(),
-    }
 }
 
 /// ## Description
@@ -393,5 +379,21 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Respons
 ///
 /// * **config** is the object of type [`Config`].
 pub fn pool_info(deps: Deps, config: Config) -> StdResult<([Asset; 2], Uint128)> {
-    Err(StdError::generic_err("not supported"))
+    Ok((
+        [
+            Asset {
+                info: AssetInfo::Token {
+                    contract_addr: config.stluna_addr.clone(),
+                },
+                amount: query_total_tokens_issued(deps, config.stluna_addr)?,
+            },
+            Asset {
+                info: AssetInfo::Token {
+                    contract_addr: config.bluna_addr.clone(),
+                },
+                amount: query_total_tokens_issued(deps, config.bluna_addr)?,
+            },
+        ],
+        Uint128::zero(),
+    ))
 }
