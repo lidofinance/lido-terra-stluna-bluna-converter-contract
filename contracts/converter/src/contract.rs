@@ -330,10 +330,30 @@ pub fn query_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationR
 ///
 /// * **ask_asset** is the object of type [`Asset`].
 pub fn query_reverse_simulation(
-    _deps: Deps,
-    _ask_asset: Asset,
+    deps: Deps,
+    ask_asset: Asset,
 ) -> StdResult<ReverseSimulationResponse> {
-    Err(StdError::generic_err("not supported"))
+    let config: Config = CONFIG.load(deps.storage)?;
+
+    if let AssetInfo::Token { contract_addr } = ask_asset.info {
+        if contract_addr == config.stluna_addr {
+            Ok(ReverseSimulationResponse {
+                offer_amount: convert_stluna_to_bluna(deps, config, ask_asset.amount)?,
+                spread_amount: Uint128::zero(),
+                commission_amount: Uint128::zero(),
+            })
+        } else if contract_addr == config.bluna_addr {
+            Ok(ReverseSimulationResponse {
+                offer_amount: convert_bluna_to_stluna(deps, config, ask_asset.amount)?,
+                spread_amount: Uint128::zero(),
+                commission_amount: Uint128::zero(),
+            })
+        } else {
+            Err(StdError::generic_err("invalid ask asset"))
+        }
+    } else {
+        Err(StdError::generic_err("invalid ask asset"))
+    }
 }
 
 /// ## Description
