@@ -17,6 +17,15 @@ pub struct Config {
 /// Stores config at the given key
 pub const CONFIG: Item<Config> = Item::new("config");
 
+/// ## Description
+/// Describes user's swap request for processing in reply handler
+/// (<USER_ADDR>, <ASK_TOKEN_ADDR>)
+pub type SwapRequest = (Addr, Addr);
+
+/// ## Description
+/// Stores addr of recipient who should get converted tokens
+pub const SWAP_RECIPIENT: Item<SwapRequest> = Item::new("swap_recipient");
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
     pub hub_addr: Addr,

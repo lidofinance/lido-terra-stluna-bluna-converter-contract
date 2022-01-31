@@ -1,9 +1,10 @@
 use crate::error::ContractError;
-use crate::state::{Config, ConfigResponse, CONFIG};
+use crate::state::{Config, ConfigResponse, CONFIG, SWAP_RECIPIENT};
+use std::str::FromStr;
 
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Addr, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env,
-    MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
+    Event, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
 use crate::msgs::InstantiateMsg;
@@ -17,6 +18,8 @@ use astroport::pair::{
 use basset::hub::Cw20HookMsg as HubCw20HookMsg;
 use cw20::Cw20ReceiveMsg;
 use std::vec;
+
+const SWAP_REPLY_ID: u64 = 1;
 
 /// ## Description
 /// Creates a new contract with the specified parameters in the [`InstantiateMsg`].
@@ -181,11 +184,11 @@ pub fn swap(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _sender: Addr,
+    sender: Addr,
     offer_asset: Asset,
     _belief_price: Option<Decimal>,
     _max_spread: Option<Decimal>,
-    _to: Option<Addr>,
+    to: Option<Addr>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
 
@@ -195,14 +198,85 @@ pub fn swap(
         return Err(ContractError::NonSupported {});
     };
 
-    let convert_message = HubCw20HookMsg::Convert {};
+    let ask_token_addr = if token_addr == config.bluna_addr {
+        config.stluna_addr
+    } else {
+        config.bluna_addr
+    };
 
+    if let Some(to_addr) = to {
+        SWAP_RECIPIENT.save(deps.storage, &(to_addr, ask_token_addr))?;
+    } else {
+        SWAP_RECIPIENT.save(deps.storage, &(sender, ask_token_addr))?;
+    }
+
+    let convert_message = HubCw20HookMsg::Convert {};
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: token_addr.to_string(),
         msg: to_binary(&cw20::Cw20ExecuteMsg::Send {
             contract: config.hub_addr.to_string(),
             amount: offer_asset.amount,
             msg: to_binary(&convert_message)?,
+        })?,
+        funds: vec![],
+    });
+
+    let sub_msg = SubMsg {
+        id: SWAP_REPLY_ID,
+        msg,
+        gas_limit: None,
+        reply_on: ReplyOn::Success,
+    };
+
+    Ok(Response::new().add_submessage(sub_msg))
+}
+
+fn get_attribute_value_from_events(events: Vec<Event>, key: String) -> Option<String> {
+    for event in events.iter() {
+        if let Some(attr) = event.attributes.iter().find(|e| e.key == key) {
+            return Some(attr.value.clone());
+        }
+    }
+    None
+}
+
+/// # Description
+/// The entry point to the contract for processing the reply from the submessage
+/// # Params
+/// * **deps** is the object of type [`DepsMut`].
+///
+/// * **_env** is the object of type [`Env`].
+///
+/// * **msg** is the object of type [`Reply`].
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let swap_request = SWAP_RECIPIENT.load(deps.storage)?;
+
+    let attr_key = if swap_request.1 == config.bluna_addr {
+        "bluna_amount"
+    } else if swap_request.1 == config.stluna_addr {
+        "stluna_amount"
+    } else {
+        return Err(ContractError::Std(StdError::generic_err(
+            "invalid swap request",
+        )));
+    };
+
+    let return_amount =
+        get_attribute_value_from_events(msg.result.unwrap().events, attr_key.to_string());
+
+    if return_amount.is_none() {
+        return Err(ContractError::Std(StdError::generic_err(
+            "cannot find returned value",
+        )));
+    }
+
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: swap_request.1.to_string(),
+        msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+            recipient: swap_request.0.to_string(),
+            amount: Uint128::from_str(return_amount.unwrap().as_str())?,
         })?,
         funds: vec![],
     });
