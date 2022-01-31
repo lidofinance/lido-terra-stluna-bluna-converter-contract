@@ -21,7 +21,7 @@ pub fn initialize<S: Storage, A: Api, Q: Querier>(deps: &mut OwnedDeps<S, A, Q>)
     };
 
     let owner_info = mock_info("owner", &[]);
-    instantiate(deps.as_mut(), mock_env(), owner_info.clone(), msg).unwrap();
+    instantiate(deps.as_mut(), mock_env(), owner_info, msg).unwrap();
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn proper_swap_stluna_bluna() {
     let sender = "addr";
     let amount = Uint128::from(100u128);
 
-    let stluna_info = mock_info(&MOCK_STLUNA_TOKEN_CONTRACT_ADDR, &[]);
+    let stluna_info = mock_info(MOCK_STLUNA_TOKEN_CONTRACT_ADDR, &[]);
     let swap = astroport::pair::Cw20HookMsg::Swap {
         belief_price: None,
         max_spread: None,
@@ -78,7 +78,7 @@ fn proper_swap_bluna_stluna() {
     let sender = "addr";
     let amount = Uint128::from(100u128);
 
-    let stluna_info = mock_info(&MOCK_BLUNA_TOKEN_CONTRACT_ADDR, &[]);
+    let stluna_info = mock_info(MOCK_BLUNA_TOKEN_CONTRACT_ADDR, &[]);
     let swap = astroport::pair::Cw20HookMsg::Swap {
         belief_price: None,
         max_spread: None,
@@ -162,7 +162,7 @@ fn proper_reverse_simulation_query() {
     initialize(deps.borrow_mut());
 
     let bluna_amount = Uint128::from(150u128);
-    let expected_offer_stluna_amount = Uint128::from(100u128);
+    let expected_offer_stluna_amount = Uint128::from(99u128);
     let simulation_response = query_reverse_simulation(
         deps.as_ref(),
         Asset {
