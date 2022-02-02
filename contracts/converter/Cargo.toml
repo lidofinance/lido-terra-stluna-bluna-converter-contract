@@ -1,9 +1,9 @@
 [package]
-name = "lido-terra-staking-rewards"
+name = "lido-terra-stluna-bluna-converter-contract"
 version = "0.0.0"
 authors = ["Lido"]
 edition = "2018"
-description = "A Staking contract for Lido Astroport Liquidity Pools - distribute rewards to stakers"
+description = "A Proxy Lido Contract for Astroport Liquidity Pools - to swap stLuna and bLuna in the Astroport pools way"
 license = "Apache-2.0"
 
 exclude = [

@@ -55,7 +55,7 @@ pub fn convert_stluna_to_bluna(
 pub fn reverse_convert_bluna_to_stluna(
     deps: Deps,
     config: Config,
-    bluna_amount_with_fee: Uint128,
+    bluna_amount: Uint128,
 ) -> StdResult<Uint128> {
     let state = query_hub_state(deps, config.hub_addr.clone())?;
     let params = query_hub_params(deps, config.hub_addr.clone())?;
@@ -67,21 +67,25 @@ pub fn reverse_convert_bluna_to_stluna(
 
     let requested_bluna_with_fee = current_batch.requested_bluna_with_fee;
 
-    let mut bluna_amount_without_fee = bluna_amount_with_fee;
+    let denom_equiv = state.bluna_exchange_rate * bluna_amount;
+
+    let mut stluna_amount = decimal_division(denom_equiv, state.stluna_exchange_rate);
     if state.bluna_exchange_rate < threshold {
-        let required_peg_fee =
-            (total_bluna_supply + requested_bluna_with_fee) - (state.total_bond_bluna_amount);
-        bluna_amount_without_fee =
-            decimal_division(bluna_amount_with_fee, Decimal::one() - recovery_fee);
-
-        if required_peg_fee < bluna_amount_without_fee - bluna_amount_with_fee {
-            bluna_amount_without_fee = required_peg_fee;
-        }
+        let stluna_amount_with_required_peg_fee = decimal_division(
+            bluna_amount + (total_bluna_supply + requested_bluna_with_fee)
+                - (state.total_bond_bluna_amount),
+            state.stluna_exchange_rate,
+        );
+        let stluna_amount_with_max_peg_fee = decimal_division(
+            decimal_division(bluna_amount, Decimal::one() - recovery_fee)
+                * state.bluna_exchange_rate,
+            state.stluna_exchange_rate,
+        );
+        stluna_amount = Uint128::min(
+            stluna_amount_with_required_peg_fee,
+            stluna_amount_with_max_peg_fee,
+        );
     }
-
-    let denom_equiv = bluna_amount_without_fee * state.bluna_exchange_rate;
-
-    let stluna_amount = decimal_division(denom_equiv, state.stluna_exchange_rate);
 
     Ok(stluna_amount)
 }
@@ -147,20 +151,25 @@ pub fn reverse_convert_stluna_to_bluna(
     let threshold = params.er_threshold;
     let recovery_fee = params.peg_recovery_fee;
 
-    let requested_bluna_with_fee = current_batch.requested_bluna_with_fee;
-
     let denom_equiv = state.stluna_exchange_rate.mul(stluna_amount);
 
-    let minted_bluna = decimal_division(denom_equiv, state.bluna_exchange_rate);
+    let offer_bluna = decimal_division(denom_equiv, state.bluna_exchange_rate);
 
-    let mut minted_bluna_with_fee = minted_bluna;
+    let mut offer_bluna_with_fee = offer_bluna;
     if state.bluna_exchange_rate < threshold {
-        let max_peg_fee = minted_bluna * recovery_fee;
-        let required_peg_fee = (total_bluna_supply + minted_bluna + requested_bluna_with_fee)
-            - (state.total_bond_bluna_amount + denom_equiv);
-        let peg_fee = Uint128::min(max_peg_fee, required_peg_fee);
-        minted_bluna_with_fee = minted_bluna.checked_sub(peg_fee)?;
+        let required_peg_fee = (total_bluna_supply + current_batch.requested_bluna_with_fee)
+            .checked_sub(state.total_bond_bluna_amount)?;
+        let offer_bluna_with_max_peg_fee = decimal_division(
+            decimal_division(denom_equiv, state.bluna_exchange_rate),
+            Decimal::one() - recovery_fee,
+        );
+        let offer_bluna_with_required_peg_fee =
+            decimal_division(denom_equiv, state.bluna_exchange_rate) + required_peg_fee;
+        offer_bluna_with_fee = Uint128::min(
+            offer_bluna_with_max_peg_fee,
+            offer_bluna_with_required_peg_fee,
+        );
     }
 
-    Ok(minted_bluna_with_fee)
+    Ok(offer_bluna_with_fee)
 }

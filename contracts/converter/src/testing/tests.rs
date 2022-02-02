@@ -178,8 +178,8 @@ fn proper_reverse_simulation_query() {
         simulation_response.offer_amount
     );
 
-    let stluna_amount = Uint128::from(100u128);
-    let expected_offer_bluna_amount = Uint128::from(150u128);
+    let stluna_amount = Uint128::from(90u128);
+    let expected_offer_bluna_amount = Uint128::from(149u128);
     let simulation_response = query_reverse_simulation(
         deps.as_ref(),
         Asset {
