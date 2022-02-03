@@ -1,8 +1,11 @@
 schema:
 	@find contracts/* -maxdepth 0 -type d \( ! -name . \) -exec bash -c "cd '{}' && cargo schema" \;
 
-build:
-	@./build_release.sh
-
 test:
 	@cargo test
+
+clippy:
+	@cargo clippy --all --all-targets -- -D warnings
+
+build: schema clippy test
+	@./build_release.sh

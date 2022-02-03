@@ -1,14 +1,13 @@
 use crate::error::ContractError;
 use crate::state::{Config, ConfigResponse, CONFIG, SWAP_REQUEST};
-use std::str::FromStr;
 
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Addr, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env,
-    Event, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
+    MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
 use crate::msgs::InstantiateMsg;
-use crate::queries::query_total_tokens_issued;
+use crate::queries::{query_cw20_balance, query_total_tokens_issued};
 use crate::simulation::{
     convert_bluna_to_stluna, convert_stluna_to_bluna, reverse_convert_bluna_to_stluna,
     reverse_convert_stluna_to_bluna,
@@ -23,9 +22,6 @@ use cw20::Cw20ReceiveMsg;
 use std::vec;
 
 const SWAP_REPLY_ID: u64 = 1;
-
-const BLUNA_AMOUNT_ATTRIBUTE_KEY: &str = "bluna_amount";
-const STLUNA_AMOUNT_ATTRIBUTE_KEY: &str = "stluna_amount";
 
 /// ## Description
 /// Creates a new contract with the specified parameters in the [`InstantiateMsg`].
@@ -211,6 +207,8 @@ pub fn swap(
         config.bluna_addr
     };
 
+    // saving recipient of the swap operation and ask token address to the storage
+    // to send swapped tokens to the recipient in reply handler
     if let Some(to_addr) = to {
         SWAP_REQUEST.save(deps.storage, &(to_addr, ask_token_addr))?;
     } else {
@@ -238,15 +236,6 @@ pub fn swap(
     Ok(Response::new().add_submessage(sub_msg))
 }
 
-fn get_attribute_value_from_events(events: Vec<Event>, key: String) -> Option<String> {
-    for event in events.iter() {
-        if let Some(attr) = event.attributes.iter().find(|e| e.key == key) {
-            return Some(attr.value.clone());
-        }
-    }
-    None
-}
-
 /// # Description
 /// The entry point to the contract for processing the reply from the submessage
 /// # Params
@@ -256,34 +245,17 @@ fn get_attribute_value_from_events(events: Vec<Event>, key: String) -> Option<St
 ///
 /// * **msg** is the object of type [`Reply`].
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
+pub fn reply(deps: DepsMut, env: Env, _msg: Reply) -> Result<Response, ContractError> {
     let swap_request = SWAP_REQUEST.load(deps.storage)?;
 
-    let attr_key = if swap_request.1 == config.bluna_addr {
-        BLUNA_AMOUNT_ATTRIBUTE_KEY
-    } else if swap_request.1 == config.stluna_addr {
-        STLUNA_AMOUNT_ATTRIBUTE_KEY
-    } else {
-        return Err(ContractError::Std(StdError::generic_err(
-            "invalid swap request",
-        )));
-    };
-
     let return_amount =
-        get_attribute_value_from_events(msg.result.unwrap().events, attr_key.to_string());
-
-    if return_amount.is_none() {
-        return Err(ContractError::Std(StdError::generic_err(
-            "cannot find returned value",
-        )));
-    }
+        query_cw20_balance(deps.as_ref(), swap_request.1.clone(), env.contract.address)?;
 
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: swap_request.1.to_string(),
         msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
             recipient: swap_request.0.to_string(),
-            amount: Uint128::from_str(return_amount.unwrap().as_str())?,
+            amount: return_amount,
         })?,
         funds: vec![],
     });
