@@ -1,6 +1,4 @@
-# Staking
+# Converter Contract
 
-**NOTE**: Reference documentation for this contract is available [here]().
-
-The Staking Contract contains the logic for LP Token staking and reward distribution. LDO tokens
-allocated for as liquidity incentives are distributed pro-rata to stakers of Astroport pairs LP token.
+The Converter Contract contains the logic for swapping stLuna/bLuna tokens with the same API as [Astroport's native pool
+contract](https://github.com/astroport-fi/astroport-core/tree/master/contracts/pair#executemsg), but it's just simply calls [Hub::Convert](https://docs.terra.lido.fi/contracts/hub#convert) under the hood.

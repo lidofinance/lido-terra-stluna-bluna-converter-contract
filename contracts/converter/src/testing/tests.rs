@@ -15,8 +15,8 @@ use std::borrow::BorrowMut;
 
 pub fn initialize<S: Storage, A: Api, Q: Querier>(deps: &mut OwnedDeps<S, A, Q>) {
     let msg = InstantiateMsg {
-        stluna_addr: Addr::unchecked(MOCK_STLUNA_TOKEN_CONTRACT_ADDR),
-        bluna_addr: Addr::unchecked(MOCK_BLUNA_TOKEN_CONTRACT_ADDR),
+        stluna_address: Addr::unchecked(MOCK_STLUNA_TOKEN_CONTRACT_ADDR),
+        bluna_address: Addr::unchecked(MOCK_BLUNA_TOKEN_CONTRACT_ADDR),
         hub_address: Addr::unchecked(MOCK_HUB_CONTRACT_ADDR),
     };
 
@@ -162,7 +162,7 @@ fn proper_reverse_simulation_query() {
     initialize(deps.borrow_mut());
 
     let bluna_amount = Uint128::from(150u128);
-    let expected_offer_stluna_amount = Uint128::from(99u128);
+    let expected_offer_stluna_amount = Uint128::from(99u128); // ~100
     let simulation_response = query_reverse_simulation(
         deps.as_ref(),
         Asset {
@@ -179,7 +179,7 @@ fn proper_reverse_simulation_query() {
     );
 
     let stluna_amount = Uint128::from(90u128);
-    let expected_offer_bluna_amount = Uint128::from(149u128);
+    let expected_offer_bluna_amount = Uint128::from(149u128); // ~150
     let simulation_response = query_reverse_simulation(
         deps.as_ref(),
         Asset {

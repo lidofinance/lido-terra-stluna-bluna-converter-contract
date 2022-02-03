@@ -1,5 +1,5 @@
 use crate::error::ContractError;
-use crate::state::{Config, ConfigResponse, CONFIG, SWAP_RECIPIENT};
+use crate::state::{Config, ConfigResponse, CONFIG, SWAP_REQUEST};
 use std::str::FromStr;
 
 use cosmwasm_std::{
@@ -24,6 +24,9 @@ use std::vec;
 
 const SWAP_REPLY_ID: u64 = 1;
 
+const BLUNA_AMOUNT_ATTRIBUTE_KEY: &str = "bluna_amount";
+const STLUNA_AMOUNT_ATTRIBUTE_KEY: &str = "stluna_amount";
+
 /// ## Description
 /// Creates a new contract with the specified parameters in the [`InstantiateMsg`].
 /// Returns the [`Response`] with the specified attributes if the operation was successful, or a [`ContractError`] if the contract was not created
@@ -38,13 +41,14 @@ const SWAP_REPLY_ID: u64 = 1;
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let config = Config {
-        stluna_addr: addr_validate_to_lower(deps.api, msg.stluna_addr.as_str())?,
-        bluna_addr: addr_validate_to_lower(deps.api, msg.bluna_addr.as_str())?,
+        stluna_addr: addr_validate_to_lower(deps.api, msg.stluna_address.as_str())?,
+        bluna_addr: addr_validate_to_lower(deps.api, msg.bluna_address.as_str())?,
         hub_addr: addr_validate_to_lower(deps.api, msg.hub_address.as_str())?,
+        owner: info.sender,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -125,7 +129,6 @@ pub fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    let contract_addr = info.sender.clone();
     match from_binary(&cw20_msg.msg) {
         Ok(Cw20HookMsg::Swap {
             belief_price,
@@ -144,6 +147,7 @@ pub fn receive_cw20(
                 None
             };
 
+            let contract_addr = info.sender.clone();
             swap(
                 deps,
                 env,
@@ -208,9 +212,9 @@ pub fn swap(
     };
 
     if let Some(to_addr) = to {
-        SWAP_RECIPIENT.save(deps.storage, &(to_addr, ask_token_addr))?;
+        SWAP_REQUEST.save(deps.storage, &(to_addr, ask_token_addr))?;
     } else {
-        SWAP_RECIPIENT.save(deps.storage, &(sender, ask_token_addr))?;
+        SWAP_REQUEST.save(deps.storage, &(sender, ask_token_addr))?;
     }
 
     let convert_message = HubCw20HookMsg::Convert {};
@@ -254,12 +258,12 @@ fn get_attribute_value_from_events(events: Vec<Event>, key: String) -> Option<St
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    let swap_request = SWAP_RECIPIENT.load(deps.storage)?;
+    let swap_request = SWAP_REQUEST.load(deps.storage)?;
 
     let attr_key = if swap_request.1 == config.bluna_addr {
-        "bluna_amount"
+        BLUNA_AMOUNT_ATTRIBUTE_KEY
     } else if swap_request.1 == config.stluna_addr {
-        "stluna_amount"
+        STLUNA_AMOUNT_ATTRIBUTE_KEY
     } else {
         return Err(ContractError::Std(StdError::generic_err(
             "invalid swap request",
@@ -450,9 +454,10 @@ pub fn query_cumulative_prices(_deps: Deps, _env: Env) -> StdResult<CumulativePr
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config: Config = CONFIG.load(deps.storage)?;
     Ok(ConfigResponse {
-        hub_addr: config.hub_addr,
-        stluna_addr: config.stluna_addr,
-        bluna_addr: config.bluna_addr,
+        hub_address: config.hub_addr,
+        stluna_address: config.stluna_addr,
+        bluna_address: config.bluna_addr,
+        owner: config.owner,
     })
 }
 

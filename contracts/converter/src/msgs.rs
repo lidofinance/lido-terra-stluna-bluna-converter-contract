@@ -8,8 +8,8 @@ use cosmwasm_std::Addr;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
     /// the Lido Terra token addresses
-    pub stluna_addr: Addr,
-    pub bluna_addr: Addr,
+    pub stluna_address: Addr,
+    pub bluna_address: Addr,
 
     /// the Lido Terra Hub address
     pub hub_address: Addr,

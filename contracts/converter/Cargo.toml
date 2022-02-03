@@ -1,6 +1,6 @@
 [package]
 name = "lido-terra-stluna-bluna-converter-contract"
-version = "0.0.0"
+version = "1.0.0"
 authors = ["Lido"]
 edition = "2018"
 description = "A Proxy Lido Contract for Astroport Liquidity Pools - to swap stLuna and bLuna in the Astroport pools way"

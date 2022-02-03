@@ -11,6 +11,8 @@ pub struct Config {
     pub hub_addr: Addr,
     pub stluna_addr: Addr,
     pub bluna_addr: Addr,
+
+    pub owner: Addr,
 }
 
 /// ## Description
@@ -23,12 +25,13 @@ pub const CONFIG: Item<Config> = Item::new("config");
 pub type SwapRequest = (Addr, Addr);
 
 /// ## Description
-/// Stores addr of recipient who should get converted tokens
-pub const SWAP_RECIPIENT: Item<SwapRequest> = Item::new("swap_recipient");
+/// Stores addr of recipient who should get converted tokens and address of converted tokens contract
+pub const SWAP_REQUEST: Item<SwapRequest> = Item::new("swap_recipient");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub hub_addr: Addr,
-    pub stluna_addr: Addr,
-    pub bluna_addr: Addr,
+    pub hub_address: Addr,
+    pub stluna_address: Addr,
+    pub bluna_address: Addr,
+    pub owner: Addr,
 }
