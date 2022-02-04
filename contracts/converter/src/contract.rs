@@ -103,7 +103,7 @@ pub fn execute(
             belief_price: _,
             max_spread: _,
             to: _,
-        } => Err(ContractError::Unauthorized {}),
+        } => Err(ContractError::NonSupported {}),
     }
 }
 
@@ -148,6 +148,7 @@ pub fn receive_cw20(
                 deps,
                 env,
                 info,
+                config,
                 Addr::unchecked(cw20_msg.sender),
                 Asset {
                     info: AssetInfo::Token { contract_addr },
@@ -187,14 +188,13 @@ pub fn swap(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
+    config: Config,
     sender: Addr,
     offer_asset: Asset,
     _belief_price: Option<Decimal>,
     _max_spread: Option<Decimal>,
     to: Option<Addr>,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
-
     let token_addr = if let AssetInfo::Token { contract_addr } = offer_asset.info {
         contract_addr
     } else {
@@ -316,7 +316,7 @@ pub fn query_pair_info(deps: Deps, env: Env) -> StdResult<PairInfo> {
         asset_infos: [pool_info[0].clone().info, pool_info[1].clone().info],
         contract_addr: env.contract.address,
         liquidity_token: Addr::unchecked(""),
-        pair_type: astroport::factory::PairType::Stable {},
+        pair_type: astroport::factory::PairType::Xyk {},
     })
 }
 
