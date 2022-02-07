@@ -1,4 +1,4 @@
-# Lido Staking Rewards Contract
+# Lido Terra stLuna <-> bLuna Converter Contract
 
 ## Development
 
