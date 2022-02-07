@@ -52,10 +52,10 @@ pub fn convert_stluna_to_bluna(
 /// * **config** is the object of type [`Config`],
 ///
 /// * **stluna_amount** is the object of type [`Uint128`]
-pub fn reverse_convert_bluna_to_stluna(
+pub fn get_required_stluna(
     deps: Deps,
     config: Config,
-    bluna_amount: Uint128,
+    asked_bluna_amount: Uint128,
 ) -> StdResult<Uint128> {
     let state = query_hub_state(deps, config.hub_addr.clone())?;
     let params = query_hub_params(deps, config.hub_addr.clone())?;
@@ -71,19 +71,19 @@ pub fn reverse_convert_bluna_to_stluna(
 
     // just a reversed calculations from the function above
     if state.bluna_exchange_rate < threshold {
-        let denom_equiv_with_applied_required_fee = bluna_amount
+        let denom_equiv_with_applied_required_fee = asked_bluna_amount
             + (total_bluna_supply + requested_bluna_with_fee)
             - (state.total_bond_bluna_amount);
 
         let denom_equiv_with_applide_max_peg_fee = state.bluna_exchange_rate
-            * decimal_division(bluna_amount, Decimal::one() - recovery_fee);
+            * decimal_division(asked_bluna_amount, Decimal::one() - recovery_fee);
 
         denom_equiv = Uint128::min(
             denom_equiv_with_applide_max_peg_fee,
             denom_equiv_with_applied_required_fee,
         );
     } else {
-        denom_equiv = state.bluna_exchange_rate * bluna_amount;
+        denom_equiv = state.bluna_exchange_rate * asked_bluna_amount;
     }
 
     let stluna_amount = decimal_division(denom_equiv, state.stluna_exchange_rate);
@@ -139,10 +139,10 @@ pub fn convert_bluna_to_stluna(
 /// * **config** is the object of type [`Config`],
 ///
 /// * **stluna_amount** is the object of type [`Uint128`]
-pub fn reverse_convert_stluna_to_bluna(
+pub fn get_required_bluna(
     deps: Deps,
     config: Config,
-    stluna_amount: Uint128,
+    asked_stluna_amount: Uint128,
 ) -> StdResult<Uint128> {
     let state = query_hub_state(deps, config.hub_addr.clone())?;
     let params = query_hub_params(deps, config.hub_addr.clone())?;
@@ -152,7 +152,7 @@ pub fn reverse_convert_stluna_to_bluna(
     let threshold = params.er_threshold;
     let recovery_fee = params.peg_recovery_fee;
 
-    let denom_equiv = state.stluna_exchange_rate.mul(stluna_amount);
+    let denom_equiv = state.stluna_exchange_rate.mul(asked_stluna_amount);
 
     let offer_bluna = decimal_division(denom_equiv, state.bluna_exchange_rate);
 

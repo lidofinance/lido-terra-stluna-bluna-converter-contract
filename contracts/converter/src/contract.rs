@@ -9,8 +9,7 @@ use cosmwasm_std::{
 use crate::msgs::InstantiateMsg;
 use crate::queries::{query_cw20_balance, query_total_tokens_issued};
 use crate::simulation::{
-    convert_bluna_to_stluna, convert_stluna_to_bluna, reverse_convert_bluna_to_stluna,
-    reverse_convert_stluna_to_bluna,
+    convert_bluna_to_stluna, convert_stluna_to_bluna, get_required_bluna, get_required_stluna,
 };
 use astroport::asset::{addr_validate_to_lower, Asset, AssetInfo, PairInfo};
 use astroport::pair::{
@@ -391,13 +390,13 @@ pub fn query_reverse_simulation(
     if let AssetInfo::Token { contract_addr } = ask_asset.info {
         if contract_addr == config.stluna_addr {
             Ok(ReverseSimulationResponse {
-                offer_amount: reverse_convert_stluna_to_bluna(deps, config, ask_asset.amount)?,
+                offer_amount: get_required_bluna(deps, config, ask_asset.amount)?,
                 spread_amount: Uint128::zero(),
                 commission_amount: Uint128::zero(),
             })
         } else if contract_addr == config.bluna_addr {
             Ok(ReverseSimulationResponse {
-                offer_amount: reverse_convert_bluna_to_stluna(deps, config, ask_asset.amount)?,
+                offer_amount: get_required_stluna(deps, config, ask_asset.amount)?,
                 spread_amount: Uint128::zero(),
                 commission_amount: Uint128::zero(),
             })
