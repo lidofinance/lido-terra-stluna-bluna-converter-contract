@@ -21,9 +21,9 @@ use std::str::FromStr;
 
 pub fn initialize<S: Storage, A: Api, Q: Querier>(deps: &mut OwnedDeps<S, A, Q>) {
     let msg = InstantiateMsg {
-        stluna_address: Addr::unchecked(MOCK_STLUNA_TOKEN_CONTRACT_ADDR),
-        bluna_address: Addr::unchecked(MOCK_BLUNA_TOKEN_CONTRACT_ADDR),
-        hub_address: Addr::unchecked(MOCK_HUB_CONTRACT_ADDR),
+        stluna_address: MOCK_STLUNA_TOKEN_CONTRACT_ADDR.to_string(),
+        bluna_address: MOCK_BLUNA_TOKEN_CONTRACT_ADDR.to_string(),
+        hub_address: MOCK_HUB_CONTRACT_ADDR.to_string(),
     };
 
     let owner_info = mock_info("owner", &[]);
