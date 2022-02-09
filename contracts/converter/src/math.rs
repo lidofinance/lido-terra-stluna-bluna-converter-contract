@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use cosmwasm_bignumber::Decimal256;
 use cosmwasm_std::{Decimal, Uint128};
 
 const DECIMAL_FRACTIONAL: u128 = 1_000_000_000_000_000_000u128;
@@ -20,6 +21,22 @@ const DECIMAL_FRACTIONAL: u128 = 1_000_000_000_000_000_000u128;
 pub fn decimal_division(a: Uint128, b: Decimal) -> Uint128 {
     let decimal = Decimal::from_ratio(a, b * Uint128::from(DECIMAL_FRACTIONAL));
     decimal * Uint128::from(DECIMAL_FRACTIONAL)
+}
+
+/// return a * b
+pub fn decimal_multiplication_in_256(a: Decimal, b: Decimal) -> Decimal {
+    let a_u256: Decimal256 = a.into();
+    let b_u256: Decimal256 = b.into();
+    let c_u256: Decimal = (b_u256 * a_u256).into();
+    c_u256
+}
+
+/// return a / b
+pub fn decimal_division_in_256(a: Decimal, b: Decimal) -> Decimal {
+    let a_u256: Decimal256 = a.into();
+    let b_u256: Decimal256 = b.into();
+    let c_u256: Decimal = (a_u256 / b_u256).into();
+    c_u256
 }
 
 #[cfg(test)]

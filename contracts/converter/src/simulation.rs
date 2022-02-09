@@ -1,4 +1,4 @@
-use crate::math::decimal_division;
+use crate::math::{decimal_division, decimal_division_in_256, decimal_multiplication_in_256};
 use crate::queries::{
     query_current_batch, query_hub_params, query_hub_state, query_total_tokens_issued,
 };
@@ -75,8 +75,12 @@ pub fn get_required_stluna(
             + (total_bluna_supply + requested_bluna_with_fee)
             - (state.total_bond_bluna_amount);
 
-        let denom_equiv_with_applide_max_peg_fee = state.bluna_exchange_rate
-            * decimal_division(asked_bluna_amount, Decimal::one() - recovery_fee);
+        let denom_equiv_with_applide_max_peg_fee =
+            decimal_division_in_256(state.bluna_exchange_rate, Decimal::one() - recovery_fee)
+                * asked_bluna_amount;
+
+        // let denom_equiv_with_applide_max_peg_fee = state.bluna_exchange_rate
+        //     * decimal_division(asked_bluna_amount, Decimal::one() - recovery_fee);
 
         denom_equiv = Uint128::min(
             denom_equiv_with_applide_max_peg_fee,
@@ -152,21 +156,29 @@ pub fn get_required_bluna(
     let threshold = params.er_threshold;
     let recovery_fee = params.peg_recovery_fee;
 
-    let denom_equiv = state.stluna_exchange_rate.mul(asked_stluna_amount);
-
-    let offer_bluna = decimal_division(denom_equiv, state.bluna_exchange_rate);
+    let offer_bluna =
+        decimal_division_in_256(state.stluna_exchange_rate, state.bluna_exchange_rate)
+            .mul(asked_stluna_amount);
 
     let mut offer_bluna_with_fee = offer_bluna;
 
     // just a reversed calculations from the function above
     if state.bluna_exchange_rate < threshold {
-        let bluna_amount = decimal_division(denom_equiv, state.bluna_exchange_rate);
-
-        let offer_bluna_with_max_peg_fee =
-            decimal_division(bluna_amount, Decimal::one() - recovery_fee);
+        let offer_bluna_with_max_peg_fee = decimal_division_in_256(
+            state.stluna_exchange_rate,
+            decimal_multiplication_in_256(state.bluna_exchange_rate, Decimal::one() - recovery_fee),
+        )
+        .mul(asked_stluna_amount);
 
         let required_peg_fee = (total_bluna_supply + current_batch.requested_bluna_with_fee)
             .checked_sub(state.total_bond_bluna_amount)?;
+
+        let bluna_amount = decimal_multiplication_in_256(
+            decimal_division_in_256(state.stluna_exchange_rate, state.bluna_exchange_rate),
+            state.stluna_exchange_rate,
+        )
+        .mul(asked_stluna_amount);
+
         let offer_bluna_with_required_peg_fee = bluna_amount + required_peg_fee;
 
         offer_bluna_with_fee = Uint128::min(

@@ -3,12 +3,18 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
+    "block_time_last",
     "bluna_address",
     "hub_address",
     "owner",
     "stluna_address"
   ],
   "properties": {
+    "block_time_last": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
     "bluna_address": {
       "$ref": "#/definitions/Addr"
     },
