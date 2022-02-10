@@ -535,9 +535,9 @@ pub fn pool_info(deps: Deps, config: Config) -> StdResult<([Asset; 2], Uint128)>
 ///
 /// * **config** is the object of type [`Config`].
 ///
-/// * **x** is the balance of asset[0] within a pool
+/// * **stluna_exchange_rate** is the exchange rate of stLuna token
 ///
-/// * **y** is the balance of asset[1] within a pool
+/// * **bluna_exchange_rate** is the exchange rate of bLuna token
 pub fn accumulate_prices(
     env: Env,
     config: &Config,
