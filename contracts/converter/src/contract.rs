@@ -1,17 +1,13 @@
 use crate::error::ContractError;
 use crate::state::{Config, ConfigResponse, CONFIG, SWAP_REQUEST};
-use std::ops::Mul;
 
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Addr, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env,
     MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
-use crate::math::{decimal_division_in_256, decimal_multiplication_in_256};
 use crate::msgs::InstantiateMsg;
-use crate::queries::{
-    query_cw20_balance, query_hub_params, query_hub_state, query_total_tokens_issued,
-};
+use crate::queries::{query_cw20_balance, query_total_tokens_issued};
 use crate::simulation::{
     convert_bluna_to_stluna, convert_stluna_to_bluna, get_required_bluna, get_required_stluna,
 };
@@ -261,17 +257,10 @@ pub fn reply(deps: DepsMut, env: Env, _msg: Reply) -> Result<Response, ContractE
     )?;
 
     let mut config = CONFIG.load(deps.storage)?;
-    let state = query_hub_state(deps.as_ref(), config.hub_addr.clone())?;
-    let params = query_hub_params(deps.as_ref(), config.hub_addr.clone())?;
 
-    if let Some((price0_cumulative_new, price1_cumulative_new, block_time)) = accumulate_prices(
-        env,
-        &config,
-        state.stluna_exchange_rate,
-        state.bluna_exchange_rate,
-        params.er_threshold,
-        params.peg_recovery_fee,
-    )? {
+    if let Some((price0_cumulative_new, price1_cumulative_new, block_time)) =
+        accumulate_prices(deps.as_ref(), env, &config)?
+    {
         config.price0_cumulative_last = price0_cumulative_new;
         config.price1_cumulative_last = price1_cumulative_new;
         config.block_time_last = block_time;
@@ -444,22 +433,14 @@ pub fn query_reverse_simulation(
 /// * **env** is the object of type [`Env`].
 pub fn query_cumulative_prices(deps: Deps, env: Env) -> StdResult<CumulativePricesResponse> {
     let config = CONFIG.load(deps.storage)?;
-    let state = query_hub_state(deps, config.hub_addr.clone())?;
-    let params = query_hub_params(deps, config.hub_addr.clone())?;
-
     let (assets, total_share) = pool_info(deps, config.clone())?;
 
     let mut price0_cumulative_last = config.price0_cumulative_last;
     let mut price1_cumulative_last = config.price1_cumulative_last;
 
-    if let Some((price0_cumulative_new, price1_cumulative_new, _)) = accumulate_prices(
-        env,
-        &config,
-        state.stluna_exchange_rate,
-        state.bluna_exchange_rate,
-        params.er_threshold,
-        params.peg_recovery_fee,
-    )? {
+    if let Some((price0_cumulative_new, price1_cumulative_new, _)) =
+        accumulate_prices(deps, env, &config)?
+    {
         price0_cumulative_last = price0_cumulative_new;
         price1_cumulative_last = price1_cumulative_new;
     }
@@ -539,12 +520,9 @@ pub fn pool_info(deps: Deps, config: Config) -> StdResult<([Asset; 2], Uint128)>
 ///
 /// * **bluna_exchange_rate** is the exchange rate of bLuna token
 pub fn accumulate_prices(
+    deps: Deps,
     env: Env,
     config: &Config,
-    stluna_exchange_rate: Decimal,
-    bluna_exchange_rate: Decimal,
-    threshold: Decimal,
-    recovery_fee: Decimal,
 ) -> StdResult<Option<(Uint128, Uint128, u64)>> {
     let block_time = env.block.time.seconds();
     if block_time <= config.block_time_last {
@@ -555,35 +533,22 @@ pub fn accumulate_prices(
 
     let time_elapsed = Uint128::from(block_time - config.block_time_last);
 
-    let stluna_price: Decimal;
-    let bluna_price: Decimal;
-    if bluna_exchange_rate < threshold {
-        let peg_fee = if Decimal::one() - bluna_exchange_rate >= recovery_fee {
-            recovery_fee
-        } else {
-            Decimal::one() - bluna_exchange_rate
-        };
+    let stluna_price = convert_stluna_to_bluna(
+        deps,
+        config.clone(),
+        Uint128::from(10u128.pow(TWAP_PRECISION.into())),
+    )?;
+    let bluna_price = convert_bluna_to_stluna(
+        deps,
+        config.clone(),
+        Uint128::from(10u128.pow(TWAP_PRECISION.into())),
+    )?;
 
-        stluna_price = decimal_multiplication_in_256(
-            decimal_division_in_256(stluna_exchange_rate, bluna_exchange_rate),
-            Decimal::one() - peg_fee,
-        );
-        bluna_price = decimal_multiplication_in_256(
-            Decimal::one() - peg_fee,
-            decimal_division_in_256(bluna_exchange_rate, stluna_exchange_rate),
-        );
-    } else {
-        stluna_price = decimal_division_in_256(stluna_exchange_rate, bluna_exchange_rate);
-        bluna_price = decimal_division_in_256(bluna_exchange_rate, stluna_exchange_rate);
-    }
-
-    let price_precision = Uint128::from(10u128.pow(TWAP_PRECISION.into()));
     let pcl0 = config
         .price0_cumulative_last
-        .wrapping_add(time_elapsed.checked_mul(price_precision)?.mul(stluna_price));
+        .wrapping_add(time_elapsed.checked_mul(stluna_price)?);
     let pcl1 = config
         .price1_cumulative_last
-        .wrapping_add(time_elapsed.checked_mul(price_precision)?.mul(bluna_price));
-
+        .wrapping_add(time_elapsed.checked_mul(bluna_price)?);
     Ok(Some((pcl0, pcl1, block_time)))
 }

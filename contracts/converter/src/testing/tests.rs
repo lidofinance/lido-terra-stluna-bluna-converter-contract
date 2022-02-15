@@ -12,12 +12,11 @@ use astroport::pair::ExecuteMsg::Receive;
 use astroport::pair::TWAP_PRECISION;
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{
-    to_binary, Addr, Api, BlockInfo, CosmosMsg, Decimal, Env, OwnedDeps, Querier, Storage,
-    Timestamp, Uint128, WasmMsg,
+    to_binary, Addr, Api, BlockInfo, CosmosMsg, Env, OwnedDeps, Querier, Storage, Timestamp,
+    Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use std::borrow::BorrowMut;
-use std::str::FromStr;
 
 pub fn initialize<S: Storage, A: Api, Q: Querier>(deps: &mut OwnedDeps<S, A, Q>) {
     let msg = InstantiateMsg {
@@ -209,10 +208,6 @@ fn test_accumulate_prices() {
         block_time_last: u64,
         last0: u128,
         last1: u128,
-        stluna_exchange_rate: Decimal,
-        bluna_exchange_rate: Decimal,
-        threshold: Decimal,
-        recovery_fee: Decimal,
     }
 
     struct Result {
@@ -231,15 +226,11 @@ fn test_accumulate_prices() {
                 block_time_last: 0,
                 last0: 0,
                 last1: 0,
-                stluna_exchange_rate: Decimal::from_str("1.5").unwrap(),
-                bluna_exchange_rate: Decimal::from_str("0.95").unwrap(),
-                threshold: Decimal::one(),
-                recovery_fee: Decimal::from_str("0.05").unwrap(),
             },
             Result {
                 block_time_last: 1000,
-                price_x: 1499, // ~((1.5 / 0.95) * (1 - 0.05)) * 1000
-                price_y: 601,  // ((1 - 0.05) * 0.95 / 1.5) * 1000
+                price_x: 1500,
+                price_y: 633,
                 is_some: true,
             },
         ),
@@ -250,10 +241,6 @@ fn test_accumulate_prices() {
                 block_time_last: 1000,
                 last0: price_precision,
                 last1: 2 * price_precision,
-                stluna_exchange_rate: Decimal::from_str("1.5").unwrap(),
-                bluna_exchange_rate: Decimal::from_str("0.95").unwrap(),
-                threshold: Decimal::one(),
-                recovery_fee: Decimal::from_str("0.05").unwrap(),
             },
             Result {
                 block_time_last: 1000,
@@ -267,40 +254,35 @@ fn test_accumulate_prices() {
                 block_time: 1500,
                 block_time_last: 1000,
                 last0: 1500 * price_precision,
-                last1: 601 * price_precision,
-                stluna_exchange_rate: Decimal::from_str("1.5").unwrap(),
-                bluna_exchange_rate: Decimal::from_str("1").unwrap(),
-                threshold: Decimal::one(),
-                recovery_fee: Decimal::from_str("0.05").unwrap(),
+                last1: 633 * price_precision,
             },
             Result {
                 block_time_last: 1500,
-                price_x: 2250, // 1500 + (1.5/1*500)
-                price_y: 934,  // 601 + (1/1.5*500)
+                price_x: 2250,
+                price_y: 949,
                 is_some: true,
             },
         ),
     ];
+
+    let deps = dependencies(&[]);
 
     for test_case in test_cases {
         let (case, result) = test_case;
 
         let env = mock_env_with_block_time(case.block_time);
         let config = accumulate_prices(
+            deps.as_ref(),
             env,
             &Config {
                 block_time_last: case.block_time_last,
                 price0_cumulative_last: Uint128::new(case.last0),
                 price1_cumulative_last: Uint128::new(case.last1),
-                hub_addr: Addr::unchecked(""),
-                stluna_addr: Addr::unchecked(""),
-                bluna_addr: Addr::unchecked(""),
-                owner: Addr::unchecked(""),
+                hub_addr: Addr::unchecked(MOCK_HUB_CONTRACT_ADDR),
+                stluna_addr: Addr::unchecked(MOCK_STLUNA_TOKEN_CONTRACT_ADDR),
+                bluna_addr: Addr::unchecked(MOCK_BLUNA_TOKEN_CONTRACT_ADDR),
+                owner: Addr::unchecked("owner"),
             },
-            case.stluna_exchange_rate,
-            case.bluna_exchange_rate,
-            case.threshold,
-            case.recovery_fee,
         )
         .unwrap();
 
