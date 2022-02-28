@@ -185,4 +185,23 @@ Thus we see three solutions:
 * querying the `last_index_modification` field from the hub (last time when stLuna exchange rate changes) to properly calculate how the stLuna price lasts;
 * do no modifications in the code.
 
-For this three solutions we've wrote a simple simulation script which handles all three of them.
+
+For this three solutions we've wrote a simple script which simulates all three of them:
+
+On the upper left chart you can see how stLuna exchange rate grows.
+
+On the upper right - accumulated prices for **three** ways of calculations: usual and bot ways are very close to each over (you can see a percentage difference between them on middle left chart - ~0.005%) and `last_index_modification` way is a way below.
+
+So we've decided make no changes in the existed code.
+
+### How to run a simulation
+
+* Install dependencies:
+```
+pip3 install -r simulation/requirements.txt
+```
+
+* Run the script
+```
+python3 simulation/simulation.py
+```
