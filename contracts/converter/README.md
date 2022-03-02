@@ -175,7 +175,7 @@ Returns the cumulative prices for the assets in the pair.
 
 ## TWAP
 
-TWAP stands for the time-weighted average price. It’s a reliable average price that can exclude short-term price fluctuation or manipulation and have been widely used in DeFi ([Astroport's usage](https://docs.astroport.fi/astroport/smart-contracts/oracles#time-weighted-average-prices))
+TWAP stands for the time-weighted average price. It’s a reliable average price that can exclude short-term price fluctuation or manipulation and have been widely used in DeFi ([How does Astroport use this](https://docs.astroport.fi/astroport/smart-contracts/oracles#time-weighted-average-prices))
 
 The time-weighted price algorithm is quite simple: the price P multiplied by how long it lasts T is continuously added to a cumulative value C. ([more info](https://docs.uniswap.org/protocol/V2/concepts/core-concepts/oracles)).
 
