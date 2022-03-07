@@ -368,8 +368,10 @@ plt.plot(blocks, converters[0].pcls0,
          label="Accumulated prices for stLuna (usual)")
 plt.plot(blocks, converters[1].pcls0,
          label="Accumulated prices for stLuna (withbot)")
+plt.plot(blocks, converters[2].pcls0,
+         label="Accumulated prices for stLuna (last_index_modification)")
 
-plt.legend(loc="upper left")
+plt.legend(loc="best")
 
 diffs = []
 for i in range(len(converters[1].pcls0)):
@@ -389,9 +391,10 @@ plt.grid()
 
 plt.plot(blocks, converters[0].average_prices_0, label="usual")
 plt.plot(blocks, converters[1].average_prices_0, label="bot")
-# plt.plot(blocks, converters[2].average_prices_0, label="block from hub")
+plt.plot(blocks, converters[2].average_prices_0,
+         label="with last_index_modification")
 
-plt.legend(loc="upper left")
+plt.legend(loc="best")
 
 
 avg_diffs = []
