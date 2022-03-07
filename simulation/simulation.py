@@ -1,8 +1,7 @@
 import random
-from xmlrpc.client import Boolean
-from construct import Int
 import matplotlib.pyplot as plt
 import time
+from enum import Enum
 
 
 BLOCKS_PER_MINUTE = 10
@@ -11,6 +10,15 @@ BLOCKS_PER_DAY = BLOCKS_PER_HOUR * 24
 BLOCKS_PER_WEEK = BLOCKS_PER_DAY * 7
 BLOCKS_PER_MONTH = BLOCKS_PER_DAY * 30
 BLOCKS_PER_YEAR = BLOCKS_PER_DAY * 365
+
+
+class Operation(Enum):
+    NOTHING = 0
+    BOND_BLUNA = 1
+    BOND_STLUNA = 2
+    BOND_BOTH = 3
+    CONVERT_STLUNA_TO_BLUNA = 4
+    CONVERT_BLUNA_TO_STLUNA = 5
 
 
 def get_change(current, previous):
@@ -73,7 +81,7 @@ class Hub:
         if self.bluna_exchange_rate() < self.threshold:
             max_peg_fee = int(bluna_mint_amount * self.recovery_fee)
             required_peg_fee = (
-                                       self.total_issued_bluna + bluna_mint_amount) - (self.total_bond_bluna + amount)
+                self.total_issued_bluna + bluna_mint_amount) - (self.total_bond_bluna + amount)
             peg_fee = min(max_peg_fee, required_peg_fee)
             bluna_mint_amount_with_fee = bluna_mint_amount - peg_fee
 
@@ -225,29 +233,29 @@ class Converter:
 
         return (price0_cumulative_last, price1_cumulative_last)
 
-    def execute_block(self, block: Block, is_slashing: Boolean, operation: Int, amount: Int):
+    def execute_block(self, block: Block, is_slashing: bool, operation: Operation, amount: int):
         if block.number % 10 == 0:
             self.hub.update_global_index(block)
         if is_slashing:
             self.hub.slashing((self.hub.total_bond_bluna +
                                self.hub.total_bond_stluna) / 1000)
-        if operation == 0:
+        if operation == Operation.NOTHING:
             pass
-        elif operation == 1:
+        elif operation == Operation.BOND_BLUNA:
             self.hub.bond_bluna(amount)
 
-        elif operation == 2:
+        elif operation == operation.BOND_STLUNA:
             self.hub.bond_stluna(amount)
 
-        elif operation == 3:
+        elif operation == operation.BOND_BOTH:
             self.hub.bond_bluna(amount)
             self.hub.bond_stluna(amount)
 
-        elif operation == 4:
+        elif operation == operation.CONVERT_STLUNA_TO_BLUNA:
             if self.hub.total_issued_stluna > 10_000:
                 self.convert_stluna_to_bluna(block, 5_000)
 
-        elif operation == 5:
+        elif operation == operation.CONVERT_BLUNA_TO_STLUNA:
             if self.hub.total_issued_bluna > 10_000:
                 self.convert_bluna_to_stluna(block, 5_000)
 
@@ -288,7 +296,7 @@ class ConverterWithBot(Converter):
             self.price1_cumulative_last = accumulated_prices[1]
             self.block_time_last = accumulated_prices[2]
 
-    def execute_block(self, block: Block, is_slashing: Boolean, operation: Int, amount: Int):
+    def execute_block(self, block: Block, is_slashing: bool, operation: Operation, amount: int):
         self.update_prices(block)
         super().execute_block(block, is_slashing, operation, amount)
 
@@ -299,7 +307,7 @@ class ConverterWithBlockFromHub(Converter):
 
     def accumulate_prices(self, block: Block):
         time_elapsed = block.time - \
-                       max(self.block_time_last, self.hub.last_block.time)
+            max(self.block_time_last, self.hub.last_block.time)
 
         if time_elapsed == 0:
             return None
@@ -335,7 +343,7 @@ for i in range(0, BLOCKS_PER_MONTH * 3):
         if random.randint(0, 100000) == 5:
             is_slashing = True
 
-    operation = random.randint(0, 5)
+    operation = random.choice(list(Operation))
     amount = random.randint(1_000_000, 10_000_000)
 
     for converter in converters:
