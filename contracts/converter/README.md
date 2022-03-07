@@ -192,11 +192,11 @@ For this three solutions we've wrote a simple script which simulates all three o
 
 * On the upper left chart you can see how stLuna exchange rate grows.
 
-* On the upper right - accumulated prices for **three** ways of calculations: usual and bot ways are very close to each over (you can see a percentage difference between them on middle left chart - ~0.005%) and `last_index_modification` way is a way below.
+* On the upper right - accumulated prices for **three** ways of calculations: usual and bot ways are very close to each over (you can see a percentage difference between them on middle left chart - ~0.0005%) and `last_index_modification` way is a way below. That is happening because the converter uses the right amount time of how long the price lasts (T), but it doesn't add this to the total accumulated value (C).
 
-* On the lower left image you can also see that a difference between an average stLuna price from the converter contract and stLuna exchangee rate from the Hub fluctuates between ~0.015 and ~0.035 percents.
+* On the lower left image you can also see that a difference between an average stLuna price from the converter contract and stLuna exchangee rate from the Hub fluctuates around ~0.035 percents.
 
-So we've decided make no changes in the existed code since an accuracy of the current implementation without an additional bot is pretty accurate.
+So we've decided make no changes in the existed code since an accuracy of the current implementation without an additional bot is pretty high.
 
 ### How to run a simulation
 
