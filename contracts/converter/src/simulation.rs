@@ -75,15 +75,12 @@ pub fn get_required_stluna(
             + (total_bluna_supply + requested_bluna_with_fee)
             - (state.total_bond_bluna_amount);
 
-        let denom_equiv_with_applide_max_peg_fee =
+        let denom_equiv_with_applied_max_peg_fee =
             decimal_division_in_256(state.bluna_exchange_rate, Decimal::one() - recovery_fee)
                 * asked_bluna_amount;
 
-        // let denom_equiv_with_applide_max_peg_fee = state.bluna_exchange_rate
-        //     * decimal_division(asked_bluna_amount, Decimal::one() - recovery_fee);
-
         denom_equiv = Uint128::min(
-            denom_equiv_with_applide_max_peg_fee,
+            denom_equiv_with_applied_max_peg_fee,
             denom_equiv_with_applied_required_fee,
         );
     } else {
