@@ -42,7 +42,7 @@ Not supported. Returns ```ContractError::NonSupported {}``` error.
 
 ### `swap`
 
-Perform a swap. `offer_asset` is your source asset and `to` is the address that will receive the ask assets. All fields are optional except `offer_asset`.
+Perform a swap. `offer_asset` is your source asset and `to` is the address that will receive the asked assets. All fields are optional except `offer_asset`.
 
 Calls [Hub::Convert](https://docs.terra.lido.fi/contracts/hub#convert) under the hood.
 
@@ -88,7 +88,7 @@ Retrieve a pair's configuration (type, assets traded in it etc)
 
 *Returns the amount of tokens in the pool for all assets as well as the amount of LP tokens issued.*
 
-In the case of the conveter contract *amount of tokens in the pool for all assets* means *the total amount of issued tokens for all assets* and LP tokens issued is always zero since the contract doesn't have LP tokens logic.
+In the case of the converter contract, *amount of tokens in the pool for all assets* means *the total amount of issued tokens for all assets* and *LP tokens issued* is always zero since the contract does not have any LP token logic.
 
 ```json
 {
@@ -110,7 +110,7 @@ Get the pair contract configuration.
 
 *Returns the amount of assets someone would get from the pool if they were to burn a specific amount of LP tokens.*
 
-In the case of the contract always returns an empty array since the converter contract doesn't have LP tokens support.
+In the case of the contract always returns an empty array since the converter contract does not support LP tokens.
 
 ```json
 {
@@ -124,7 +124,7 @@ In the case of the contract always returns an empty array since the converter co
 
 *Simulates a swap and returns the spread and commission amounts.*
 
-The spread and comimission amounts equal to zero since no actual pool swap happens.
+The spread and commission amounts equal to zero since no actual pool swap happens.
 
 ```json
 {
@@ -145,7 +145,7 @@ The spread and comimission amounts equal to zero since no actual pool swap happe
 
 *Reverse simulates a swap (specifies the ask instead of the offer) and returns the offer amount, spread and commission.*
 
-The spread and comimission amounts equal to zero since no actual pool swap happens.
+The spread and commission amounts equal to zero since no actual pool swap happens.
 
 ```json
 {
@@ -175,28 +175,28 @@ Returns the cumulative prices for the assets in the pair.
 
 ## TWAP
 
-TWAP stands for the time-weighted average price. It’s a reliable average price that can exclude short-term price fluctuation or manipulation and have been widely used in DeFi ([How does Astroport use this](https://docs.astroport.fi/astroport/smart-contracts/oracles#time-weighted-average-prices))
+TWAP stands for the time-weighted average price. It's a reliable average price that can exclude short-term price fluctuation or manipulation and has been widely used in DeFi ([How does Astroport use this](https://docs.astroport.fi/astroport/smart-contracts/oracles#time-weighted-average-prices))
 
-The time-weighted price algorithm is quite simple: the price P multiplied by how long it lasts T is continuously added to a cumulative value C. ([more info](https://docs.uniswap.org/protocol/V2/concepts/core-concepts/oracles)).
+The time-weighted price algorithm is quite simple: the price P, multiplied by its duration T, is continuously added to a cumulative value C. ([more info](https://docs.uniswap.org/protocol/V2/concepts/core-concepts/oracles)).
 
-But the converter contract might have a problem with calculations of cumulative prices since stLuna price always grows (actually stLuna price increases every hour). For example, if no swaps were made in a large amount of time the converter can't know how long the stLuna price lasts.
-Thus we see three solutions:
-* implement a bot which will update a cumulative prices in the conveter contract each time when stLuna exchange rate changes in the hub;  
-* querying the `last_index_modification` field from the hub (last time when stLuna exchange rate changes) to properly calculate how the stLuna price lasts;
-* do no modifications in the code.
+Because the price of stLuna grows increases every hour, calculating the cumulative price of stLuna could be problematic to the converter contract. For example, if no swaps are made for an extended period of time, the converter would be incapable of calculating the right duration for the last price.
 
+We see three solutions to this problem:
+* to implement a bot which will update the cumulative price in the converter contract each time the stLuna exchange rate changes in the hub;  
+* to query the `last_index_modification` field from the hub (returns the last time the stLuna exchange rate changed) to properly calculate the stLuna price duration;
+* to make no change to the code.
 
-For this three solutions we've wrote a simple script which simulates all three of them:
+We've written a simple script which simulates all three options:
 
 ![](imgs/result.png)
 
-* On the upper left chart you can see how stLuna exchange rate grows.
+* The upper left chart shows the stLuna exchange rate growth.
 
-* On the upper right - accumulated prices for **three** ways of calculations: usual and bot ways are very close to each over (you can see a percentage difference between them on middle left chart - ~0.0005%) and `last_index_modification` way is a way below. That is happening because the converter uses the right amount time of how long the price lasts (T), but it doesn't add this to the total accumulated value (C).
+* The upper right chat shows accumulated prices for **each of the three** methods: the usual and bot-assisted calculations yield similar results (the percentage difference between those can be seen on the middle left chart - ~0.0005%), whereas `last_index_modification` produces lower values. This is because the converter uses the right price duration (T), but doesn't add it to the total accumulated value (C).
 
-* On the lower left image you can also see that a difference between an average stLuna price from the converter contract and stLuna exchangee rate from the Hub fluctuates around ~0.035 percents.
+* The lower left image shows that the difference between the average stLuna price from the converter contract and the stLuna exchange rate from the Hub fluctuates around ~0.035 percents.
 
-So we've decided make no changes in the existed code since an accuracy of the current implementation without an additional bot is pretty high.
+We thus decided against making changes to the existing code, since it is already highly accurate without the addition of a bot.
 
 ### How to run a simulation
 
