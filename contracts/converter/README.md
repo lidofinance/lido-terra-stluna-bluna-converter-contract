@@ -179,12 +179,12 @@ TWAP stands for the time-weighted average price. It's a reliable average price t
 
 The time-weighted price algorithm is quite simple: the price P, multiplied by its duration T, is continuously added to a cumulative value C. ([more info](https://docs.uniswap.org/protocol/V2/concepts/core-concepts/oracles)).
 
-Because the price of stLuna grows increases every hour, calculating the cumulative price of stLuna could be problematic to the converter contract. For example, if no swaps are made for an extended period of time, the converter would be incapable of calculating the right duration for the last price.
+Because the price of stLuna increases every hour, calculating the cumulative price of stLuna could be problematic to the converter contract. For example, if no swaps are made for an extended period of time, the converter would be incapable of calculating the right duration for the last price.
 
 We see three solutions to this problem:
 * to implement a bot which will update the cumulative price in the converter contract each time the stLuna exchange rate changes in the hub;  
 * to query the `last_index_modification` field from the hub (returns the last time the stLuna exchange rate changed) to properly calculate the stLuna price duration;
-* to make no change to the code.
+* to make no changes to the code.
 
 We've written a simple script which simulates all three options:
 
@@ -192,7 +192,7 @@ We've written a simple script which simulates all three options:
 
 * The upper left chart shows the stLuna exchange rate growth.
 
-* The upper right chat shows accumulated prices for **each of the three** methods: the usual and bot-assisted calculations yield similar results (the percentage difference between those can be seen on the middle left chart - ~0.0005%), whereas `last_index_modification` produces lower values. This is because the converter uses the right price duration (T), but doesn't add it to the total accumulated value (C).
+* The upper right chart shows accumulated prices for **each of the three** methods: the usual and bot-assisted calculations yield similar results (the percentage difference between those can be seen on the middle left chart - ~0.0005%), whereas `last_index_modification` produces lower values. This is because the converter uses the right price duration (T), but doesn't add it to the total accumulated value (C).
 
 * The lower left image shows that the difference between the average stLuna price from the converter contract and the stLuna exchange rate from the Hub fluctuates around ~0.035 percents.
 
