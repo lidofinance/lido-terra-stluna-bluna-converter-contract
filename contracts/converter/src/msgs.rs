@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright Astroport
+// Copyright Lido
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

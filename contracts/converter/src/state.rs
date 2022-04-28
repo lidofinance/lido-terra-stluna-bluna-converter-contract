@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright Astroport
+// Copyright Lido
+
 use cosmwasm_std::{Addr, Uint128};
 use cw_storage_plus::Item;
 use schemars::JsonSchema;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright Lido
+
 use crate::math::{decimal_division, decimal_division_in_256, decimal_multiplication_in_256};
 use crate::queries::{
     query_current_batch, query_hub_params, query_hub_state, query_total_tokens_issued,

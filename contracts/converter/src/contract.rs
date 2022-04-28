@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright Astroport
+// Copyright Lido
+
 use crate::error::ContractError;
 use crate::state::{Config, ConfigResponse, CONFIG, SWAP_REQUEST};
 
