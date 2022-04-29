@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright Astroport
+// Copyright Lido
+
 use std::env::current_dir;
 use std::fs::create_dir_all;
 

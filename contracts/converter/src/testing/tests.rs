@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright Astroport
+// Copyright Lido
+
 use super::mock_querier::mock_dependencies as dependencies;
 use crate::contract::{
     accumulate_prices, execute, instantiate, query_reverse_simulation, query_simulation,
