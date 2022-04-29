@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: GPL-3.0-only
 // Copyright Astroport
 // Copyright Anchor Protocol
 // Copyright Lido

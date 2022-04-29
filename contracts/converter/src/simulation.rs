@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: GPL-3.0-only
 // Copyright Lido
 
 use crate::math::{decimal_division, decimal_division_in_256, decimal_multiplication_in_256};
